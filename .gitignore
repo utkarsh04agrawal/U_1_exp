@@ -1,4 +1,5 @@
-/data
+/data/*
+!README.md
 /sep_data/hash_tables
 /sep_data/pairing_data
 /sep_data/transfer_matrix
