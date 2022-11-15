@@ -91,7 +91,7 @@ def load_measurement_data(L,depth,Q,p,seed):
     """
     temp is a list of different trajectories for the FIXED unitary and FIXED measurement locations. For example, temp[0]=(Arr,int) is a trajectory stored as a tuple of an array Arr of shape (depth,L) and number of times it occured, int; the entries of the array are 0 if no measurement has been performed at the space time point, or -1 or +1 where the sign corresponds to measurement outcome 0 or 1.
     """
-    filename = 'data/measurement_data/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
+    filename = 'data/measurement_data_unitaries_fixed/param_seed=100/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
     with open(filename,'rb') as f:
         data = pickle.load(f)
     return data
@@ -294,12 +294,12 @@ def run():
             aa[L][p][L//2-1] = sep_dynamics(L,L,L//2-1,p,seed=1)
             print(p,' completed, time', time.time()-start)
 
-        filename = 'sep_data/nothing_fixed'
+        filename = 'sep_data/unitaries_fixed'
         with open(filename,'wb') as f:
             pickle.dump(aa,f)
     return aa
 
 aa = run()
-filename = 'sep_data/nothing_fixed'
+filename = 'sep_data/unitaries_fixed'
 with open(filename,'wb') as f:
     pickle.dump(aa,f)

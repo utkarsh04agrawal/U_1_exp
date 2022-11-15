@@ -310,12 +310,15 @@ def collect_unitary_fixed_data(L_list,p_list,param_seed,samples,depth_ratio=1):
         # generate and save random circuit parameters
         """ We are storing a sufficiently large array of size (500,50) though we only need size (depth,L). To get the actual parameters we slice the big array."""
         param_array = 4*np.pi*param_rng.uniform(0,1,(PARAMS_PER_GATE,500,50))
-
-    T_LARGE, L_LARGE = param_array.shape
+        with open(param_file,'wb') as f:
+            pickle.dump(param_array,f)
+    _,T_LARGE, L_LARGE = param_array.shape
     for L in L_list:
-        param_list = [list(param_array[L_LARGE//2 - L//2:L_LARGE//2+L//2 - i%2]) for i in range(L*depth_ratio)]
+        param_list = [list(param_array[:,i,L_LARGE//2 - L//2:L_LARGE//2+L//2 - i%2]) for i in range(L*depth_ratio)]
         for p in p_list:
             start = time.time()
             get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2,p,samples,1,param_list,param_seed)
             get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2-1,p,samples,1,param_list,param_seed)
             print(L,p,time.time()-start)
+
+collect_unitary_fixed_data(L_list,p_list,100,10,1)
