@@ -107,7 +107,7 @@ def scrambled_state(depth,L,Q,debus=False,BC='PBC'):
     
 
 # Function to generate a random circuit
-def generate_u1mrc(L,depth,m_locs,params,Q,debug=False):
+def generate_u1mrc(L,depth,m_locs,params,Q,debug=False,scrambled=False):
     """
     inputs:
         - L, int, system size
@@ -129,12 +129,12 @@ def generate_u1mrc(L,depth,m_locs,params,Q,debug=False):
     for reg in creg_list:
         circ.add_register(reg)
     
-
-    # initial_state = scrambled_state(2*L,L,Q)
-    # circ.initialize(initial_state)
-
-    for i in range(0,Q,1):
-        circ.x(qreg[2*i])
+    if scrambled:
+        initial_state = scrambled_state(2*L,L,Q)
+        circ.initialize(initial_state)
+    else:
+        for i in range(0,Q,1):
+            circ.x(qreg[2*i])
 
     # create the circuit layer-by-layer
     for i in range(depth):
@@ -195,14 +195,14 @@ def outcome_history(circuit_results,L,depth,p_locations):
     return measurement_data
 
 
-def quantum_trajectories(L,depth,Q,p,shots,m_locs, param_list):
+def quantum_trajectories(L,depth,Q,p,shots,m_locs, param_list,scrambled=False):
     # Create a circuit instance
     # Circuit geometry
 
     # Draw circuit
     # print('Remember to set debug=FALSE to generate actual circuits...')
 
-    _,_,circ = generate_u1mrc(L,depth,m_locs,param_list,Q,debug=False)
+    _,_,circ = generate_u1mrc(L,depth,m_locs,param_list,Q,debug=False,scrambled=scrambled)
     # circ.draw(output='mpl',scale=1)
     simulator = qk.Aer.get_backend('aer_simulator')
     circ = qk.transpile(circ, simulator)
@@ -219,8 +219,16 @@ def quantum_trajectories(L,depth,Q,p,shots,m_locs, param_list):
 
 
 ## This changes measurement locations shot to shot
-def get_trajectories(L,depth,Q,p,shots,seed):
-    filename = 'data/measurement_data/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
+def get_trajectories(L,depth,Q,p,shots,seed,scrambled=False):
+    if not scrambled:
+        filedir = 'data/measurement_data/'
+    else:
+        filedir = 'data/measurement_data_scrambled/'
+
+    if not os.path.isdir(filedir):
+        os.makedirs(filedir)
+
+    filename = filedir+'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
     if os.path.isfile(filename):
         with open(filename,'rb') as f:
             data = pickle.load(f)
@@ -244,7 +252,7 @@ def get_trajectories(L,depth,Q,p,shots,seed):
 
     
 
-        new_trajectories = quantum_trajectories(L,depth,Q,p,1,m_locs,param_list)
+        new_trajectories = quantum_trajectories(L,depth,Q,p,1,m_locs,param_list,scrambled=scrambled)
         data.append([new_trajectories,m_locs,param_list])
 
     with open(filename,'wb') as f:
@@ -252,9 +260,11 @@ def get_trajectories(L,depth,Q,p,shots,seed):
 
 
 ## This changes measurement locations (but not unitaries) shot to shot
-def get_trajectories_unitaries_fixed(L,depth,Q,p,shots,seed,param_list,param_seed):
-    filename_dir = 'data/measurement_data_unitaries_fixed/param_seed='+ str(param_seed )+'/'
-
+def get_trajectories_unitaries_fixed(L,depth,Q,p,shots,seed,param_list,param_seed,scrambled=False):
+    if not scrambled:
+        filename_dir = 'data/measurement_data_unitaries_fixed/param_seed='+ str(param_seed )+'/'
+    else:
+        filename_dir = 'data/measurement_data_unitaries_fixed_scrambled/param_seed='+ str(param_seed )+'/'
     if not os.path.isdir(filename_dir):
         os.makedirs(filename_dir)
 
@@ -274,7 +284,7 @@ def get_trajectories_unitaries_fixed(L,depth,Q,p,shots,seed,param_list,param_see
         # 1 denotes measurement, 0 = no measurement
         m_locs = rng.binomial(1,p,L*(depth-1)).reshape((depth-1,L))
 
-        new_trajectories = quantum_trajectories(L,depth,Q,p,1,m_locs,param_list)
+        new_trajectories = quantum_trajectories(L,depth,Q,p,1,m_locs,param_list,scrambled=scrambled)
         data.append([new_trajectories,m_locs,param_list])
 
     with open(filename,'wb') as f:
@@ -285,16 +295,16 @@ L_list = [8,10,12]
 p_list = [0.05,0.1,0.13,0.16,0.2,0.25,0.3]
 
 
-def collect_nothing_fixed_data(L_list,p_list,samples,depth_ratio=1):
+def collect_nothing_fixed_data(L_list,p_list,samples,depth_ratio=1,scrambled=False):
     for L in L_list:
         for p in p_list:
             start = time.time()
-            get_trajectories(L,L*depth_ratio,L//2,p,samples,1)
-            get_trajectories(L,L*depth_ratio,L//2 - 1,p,samples,1)
+            get_trajectories(L,L*depth_ratio,L//2,p,samples,1,scrambled=scrambled)
+            get_trajectories(L,L*depth_ratio,L//2 - 1,p,samples,1,scrambled=scrambled)
             print(L,p,time.time()-start)
 
 
-def collect_unitary_fixed_data(L_list,p_list,param_seed,samples,depth_ratio=1):
+def collect_unitary_fixed_data(L_list,p_list,param_seed,samples,depth_ratio=1,scrambled=False):
     filename_dir = 'data/measurement_data_unitaries_fixed/param_seed='+ str(param_seed )+'/'
 
     if not os.path.isdir(filename_dir):
@@ -317,8 +327,8 @@ def collect_unitary_fixed_data(L_list,p_list,param_seed,samples,depth_ratio=1):
         param_list = [list(param_array[:,i,L_LARGE//2 - L//2:L_LARGE//2+L//2 - i%2]) for i in range(L*depth_ratio)]
         for p in p_list:
             start = time.time()
-            get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2,p,samples,1,param_list,param_seed)
-            get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2-1,p,samples,1,param_list,param_seed)
+            get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2,p,samples,1,param_list,param_seed,scrambled=scrambled)
+            get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2-1,p,samples,1,param_list,param_seed,scrambled=scrambled)
             print(L,p,time.time()-start)
 
-collect_unitary_fixed_data(L_list,p_list,100,10,1)
+collect_nothing_fixed_data([8],[1],samples=10,depth_ratio=1,scrambled=False)

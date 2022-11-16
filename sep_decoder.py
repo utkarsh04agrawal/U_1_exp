@@ -70,14 +70,23 @@ def load_transfer_matrices(pairings,dim,L,Q):
 
 
 # Function to get the initial state used in the Qiskit simulation
-def initial_state(L,Q,hash_table):
-    filename = 'data/scrambled_states/L='+str(L)+'_T='+str(2*L)+'_Q='+str(Q)
-    with open(filename,'rb') as f:
-        state = pickle.load(f)
-
-    state = np.asarray(state).reshape((2,)*L)
-    state = np.transpose(state,range(L)[::-1]) # reversing the order of qubits as qiskit has qubit #0 at the right end
-
+def initial_state(L,Q,hash_table,neel_state=True):
+    #
+    if not neel_state:
+        filename = 'data/scrambled_states/L='+str(L)+'_T='+str(2*L)+'_Q='+str(Q)
+        with open(filename,'rb') as f:
+            state = pickle.load(f)
+        state = np.asarray(state).reshape((2,)*L)
+        state = np.transpose(state,range(L)[::-1]) # reversing the order of qubits as qiskit has qubit #0 at the right end
+    else:
+        state = np.zeros((2,)*L)
+        confi = [0]*L
+        for x in range(0,Q,1):
+            confi[2*x] = 1
+        state[tuple(confi)] = 1
+    
+    #
+    #
     dim = len(hash_table)
     classical_state = np.zeros(dim)
     for confi,index in hash_table.items():
@@ -87,11 +96,10 @@ def initial_state(L,Q,hash_table):
 
 
 # Function to load measurement data obtained from Qiskit simulation
-def load_measurement_data(L,depth,Q,p,seed):
+def load_measurement_data(filename):
     """
-    temp is a list of different trajectories for the FIXED unitary and FIXED measurement locations. For example, temp[0]=(Arr,int) is a trajectory stored as a tuple of an array Arr of shape (depth,L) and number of times it occured, int; the entries of the array are 0 if no measurement has been performed at the space time point, or -1 or +1 where the sign corresponds to measurement outcome 0 or 1.
+    data is a list of different trajectories. For example, data[i] = (measurement_array,m_locs,param_list). measurement_array is a tuple:(array,int) and stores a trajectory stored as a tuple of an array Arr of shape (depth,L) and number of times it occured, int; the entries of the array are 0 if no measurement has been performed at the space time point, or -1 or +1 where the sign corresponds to measurement outcome 0 or 1.
     """
-    filename = 'data/measurement_data_unitaries_fixed/param_seed=100/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
     with open(filename,'rb') as f:
         data = pickle.load(f)
     return data
@@ -204,7 +212,7 @@ def trial(L):
     return p_success
 
 
-def sep_dynamics(L,depth,Q,p,seed=1):
+def sep_dynamics(L,depth,Q,p,seed=1,neel_initial_state=True,what_type='nothing_fixed'):
     Q2 = Q-1
     if Q<L//2:
         Q2 = Q+1
@@ -215,7 +223,15 @@ def sep_dynamics(L,depth,Q,p,seed=1):
     dim = len(hash_table)
     dim2 = len(hash_table2)
     
-    data = load_measurement_data(L,depth,Q,p,seed)
+    if not neel_initial_state:
+        scrambling_label='_scrambled'
+    else:
+        scrambling_label = ""
+    if what_type=="nothing_fixed":
+        filename = 'data/measurement_data'+scrambling_label+'/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
+    elif what_type == "unitaries_fixed":
+        filename = 'data/measurement_data_unitaries_fixed'+scrambling_label+'/param_seed=100/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)
+    data = load_measurement_data(filename)
 
     total = 0
     p_success = []
@@ -223,8 +239,8 @@ def sep_dynamics(L,depth,Q,p,seed=1):
     transfer_matrices = load_transfer_matrices(pairings,dim,L,Q)
     transfer_matrices2 = load_transfer_matrices(pairings2,dim2,L,Q2)
     
-    initial_state_Q = initial_state(L,Q,hash_table)
-    initial_state_Q2 = initial_state(L,Q2,hash_table2)
+    initial_state_Q = initial_state(L,Q,hash_table,neel_state=neel_initial_state)
+    initial_state_Q2 = initial_state(L,Q2,hash_table2,neel_state=neel_initial_state)
 
     for measurements,m_loc,param in data[:]:
         traj,N = measurements[0]
@@ -279,7 +295,7 @@ def sep_dynamics(L,depth,Q,p,seed=1):
     return p_success
 
 
-def run():
+def run(filename,neel_initial_state=True,what_type='nothing_fixed'):
     aa = {}
     p_list = [0.05,0.1,0.13,0.16,0.2,0.25,0.3]
     # p_list = [0.13]
@@ -290,16 +306,16 @@ def run():
             print(p)
             aa[L][p] = {}
             start = time.time()
-            aa[L][p][L//2] = sep_dynamics(L,L,L//2,p,seed=1)
-            aa[L][p][L//2-1] = sep_dynamics(L,L,L//2-1,p,seed=1)
+            aa[L][p][L//2] = sep_dynamics(L,L,L//2,p,seed=1,neel_initial_state=neel_initial_state,what_type=what_type)
+            aa[L][p][L//2-1] = sep_dynamics(L,L,L//2-1,p,seed=1,neel_initial_state=neel_initial_state,what_type=what_type)
             print(p,' completed, time', time.time()-start)
 
-        filename = 'sep_data/unitaries_fixed'
         with open(filename,'wb') as f:
             pickle.dump(aa,f)
     return aa
 
-aa = run()
-filename = 'sep_data/unitaries_fixed'
+
+filename = 'sep_data/nothing_fixed'
+aa = run(filename,neel_initial_state=False,what_type='nothing_fixed')
 with open(filename,'wb') as f:
     pickle.dump(aa,f)
