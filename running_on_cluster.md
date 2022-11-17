@@ -10,5 +10,8 @@ To_do: run Qiskit_traj for unitary_fixed case.
 
 ### 15 Nov 22 Tues
 1. Running Qiskit data for nothing fixed with Neel initial state. L=8,10,12. dir=data/measurement_data. There already exist L=14 in there. Job id 466099
-2. Running Qiskit data for unitary fixed with Neel initial state. L=8,10,12. shots=1500. dir=data/measurement_data_unitaries_fixed. Job id 466102
+2. Running Qiskit data for unitary fixed with Neel initial state. L=8,10,12. shots=1500. dir=data/measurement_data_unitaries_fixed. Job id 466104
 
+
+### 16 Nov 22 Wed
+1. Running Qiskit data for nothing fixed with scrambled state but DEPTH=2*L. L=8,10,12. dir=data/measurement_data_depth_ratio=2. Job id 466726

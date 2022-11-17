@@ -58,7 +58,7 @@ def u1gate(circ,gate_params,q1,q2,debug=False):
 
 
 # Function to get scrambled the initial state
-def scrambled_state(depth,L,Q,debus=False,BC='PBC'):
+def scrambled_state(depth,L,Q,debug=False,BC='PBC'):
     """
     L is system size. Depth is the depth of scrambling circuit. Q is total charge and is less than equal to int(L/2)
     """
@@ -220,10 +220,15 @@ def quantum_trajectories(L,depth,Q,p,shots,m_locs, param_list,scrambled=False):
 
 ## This changes measurement locations shot to shot
 def get_trajectories(L,depth,Q,p,shots,seed,scrambled=False):
-    if not scrambled:
-        filedir = 'data/measurement_data/'
+    depth_ratio = int(depth/L)
+    if depth_ratio != 1:
+        depth_label= "_depth_ratio="+str(depth_ratio)
     else:
-        filedir = 'data/measurement_data_scrambled/'
+        depth_label = ""
+    if not scrambled:
+        filedir = 'data/measurement_data'+depth_label+'/'
+    else:
+        filedir = 'data/measurement_data_scrambled'+depth_label+'/'
 
     if not os.path.isdir(filedir):
         os.makedirs(filedir)
@@ -291,9 +296,6 @@ def get_trajectories_unitaries_fixed(L,depth,Q,p,shots,seed,param_list,param_see
         pickle.dump(data,f)
     
 
-L_list = [8,10,12]
-p_list = [0.05,0.1,0.13,0.16,0.2,0.25,0.3]
-
 
 def collect_nothing_fixed_data(L_list,p_list,samples,depth_ratio=1,scrambled=False):
     for L in L_list:
@@ -331,4 +333,8 @@ def collect_unitary_fixed_data(L_list,p_list,param_seed,samples,depth_ratio=1,sc
             get_trajectories_unitaries_fixed(L,L*depth_ratio,L//2-1,p,samples,1,param_list,param_seed,scrambled=scrambled)
             print(L,p,time.time()-start)
 
-collect_nothing_fixed_data([8],[1],samples=10,depth_ratio=1,scrambled=False)
+
+L_list = [8,10,12]
+p_list = [0.05,0.1,0.13,0.16,0.2,0.25,0.3]
+
+collect_nothing_fixed_data(L_list,p_list,samples=1500,depth_ratio=2,scrambled=True)
