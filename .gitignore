@@ -4,3 +4,4 @@
 /sep_data/pairing_data
 /sep_data/transfer_matrix
 /__pycache__
+*.npy

@@ -315,7 +315,7 @@ def run(filename,neel_initial_state=True,what_type='nothing_fixed'):
     return aa
 
 
-filename = 'sep_data/nothing_fixed'
-aa = run(filename,neel_initial_state=False,what_type='nothing_fixed')
-with open(filename,'wb') as f:
-    pickle.dump(aa,f)
+# filename = 'sep_data/nothing_fixed'
+# aa = run(filename,neel_initial_state=False,what_type='nothing_fixed')
+# with open(filename,'wb') as f:
+#     pickle.dump(aa,f)
