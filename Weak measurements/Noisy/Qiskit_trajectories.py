@@ -105,6 +105,17 @@ def scrambled_state(depth,L,Q,debug=False,BC='PBC'):
     with open(filename,'wb') as f:
         pickle.dump(state,f)
     return state
+
+
+def noisy_scrambling(circ,qreg,scr_param):
+    ## scr_param is a list with alternate parameters about a even layer of u1 gates and random swaps.
+    for t in range(len(scr_param)//2):
+        u1_param = scr_param[2*t]
+        for j in range(len(u1_param)):
+            circ = u1gate(circ,u1_param[j],qreg[2*j],qreg[2*j+1])
+        swap_param = scr_param[2*t+1]
+        for j in range(0,len(swap_param),2):
+            circ.swap(swap_param[j],swap_param[j+1])
     
 
 def weak_measurement(circ,q,q_a,theta):
@@ -154,7 +165,7 @@ def noise_model(p_depo_1,p_depo_2,basis_gates_1_site,basis_gates_2_site):
 
 
 # Function to generate a random circuit
-def generate_u1mrc(L,depth,m_locs,params,Q,theta,debug=False,scrambled=False):
+def generate_u1mrc(L,depth,m_locs,params,Q,theta,seed,debug=False,scrambled=None,scrambling_rng=None,scrambling_param=[]):
     """
     inputs:
         - L, int, system size
@@ -167,7 +178,7 @@ def generate_u1mrc(L,depth,m_locs,params,Q,theta,debug=False,scrambled=False):
         - theta is the strength of weak measurement. theta=0 is no measurement, theta=\pi is projective measurement.          
         - debug, bool, if True replaces u1 gates with cz gates and adds barriers so that you can visualize more easily
     outputs:
-        - qiskit circuit of appropriate
+        - qiskit circuit
     """
     assert Q <= L//2
     qreg = qk.QuantumRegister(L+1,'q') #L+1 qubit is for ancilla to perform weak measurement
@@ -178,12 +189,19 @@ def generate_u1mrc(L,depth,m_locs,params,Q,theta,debug=False,scrambled=False):
     for reg in creg_list:
         circ.add_register(reg)
     
-    if scrambled:
+    if scrambled == 'Ideal':
         initial_state = scrambled_state(2*L,L,Q)
         circ.initialize(initial_state)
-    else:
+    elif scrambled == 'Noisy':
+        t_scram = len(scrambling_param)//2
+        if t_scram == 0:
+            print("No scrambling paramters provided for noisy scrambling")
+        noisy_scrambling(circ,qreg,scrambling_param)
+    elif scrambled is None:
         for i in range(0,Q,1):
             circ.x(qreg[2*i])
+    else:
+        print("Scrambled input argument not recognized. It should be either \'Noisy\', \'Ideal\' or None")
 
     # create the circuit layer-by-layer
     for i in range(depth):
@@ -245,42 +263,54 @@ def outcome_history(circuit_results,L,depth,p_locations):
     return measurement_data
 
 
-def quantum_trajectories(L,depth,Q,theta,shots,m_locs, param_list,p_depo_1,p_depo_2,scrambled=False):
-    # Create a circuit instance
-    # Circuit geometry
+def quantum_trajectories(L,depth,Q,theta,shots,m_locs,p_depo_1,p_depo_2,basis_gate_1_site,basis_gate_2_site,circ=None,scrambled=False,scrambling_param = [],param_list=[],seed=None):
+    # Create a circuit geometry and execute to get # of trajectories=shots
 
-    # Draw circuit
-    # print('Remember to set debug=FALSE to generate actual circuits...')
-
-    _,_,circ = generate_u1mrc(L,depth,m_locs,param_list,Q,theta,debug=False,scrambled=scrambled)
-    # circ.draw(output='mpl',scale=1)
-    basis_gate_1_site = ['id','sx','u1','u2','u3','rz']
-    basis_gate_2_site = ['cx']
     noise = noise_model(p_depo_1=p_depo_1,p_depo_2=p_depo_2,basis_gates_1_site=basis_gate_1_site.copy(),basis_gates_2_site=basis_gate_2_site.copy())
-
     simulator = AerSimulator(noise_model=noise) 
     """
     I tried using simulator = qk.Aer.get_backend('aer_simulator') but was not able to change basis gates. The above line with noise_model argument allows the basis gates of the simulator to be equal to that of the noise_model.
-    """    
+    """ 
 
-    circ = qk.transpile(circ, simulator)
+    if circ is None:
+        _,_,circ = generate_u1mrc(L,depth,m_locs,param_list,Q,theta,seed=seed,debug=False,scrambled=scrambled,scrambling_param=scrambling_param)
+        # circ.draw(output='mpl',scale=1)
+        circ = qk.transpile(circ, simulator)
 
-    result = simulator.run(circ,shots=shots).result()
-    if np.sum(m_locs) == 0:
-        measurement_array = [(np.zeros((depth,L)),shots)]
+    if shots > 0:
+        result = simulator.run(circ,shots=shots).result()
+        if np.sum(m_locs) == 0:
+            measurement_array = [(np.zeros((depth,L)),shots)]
+        else:
+            measurement_array = outcome_history(result, L, depth, m_locs)
+
+        return measurement_array,circ
+    
     else:
-        measurement_array = outcome_history(result, L, depth, m_locs)
-
-    return measurement_array
+        return [],circ
 
 
-# print(measurement_array[2])
+# L=6
+# depth=6
+# Q=3
+# p=0.677
+# seed=1
+# m_locs = np.array([[1,1]*(L//2) for t in range(depth-1)])
 
-aa = [1,2,3]
-aa.extend([[1,2]])
-aa
+# circ_file_dir = 'Weak measurements/circ_data/scrambling/basis_gate_set='+str(1) + '/'
+# circ_file = circ_file_dir + 'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(p)+'_seed='+str(seed)+'.imdat'
+# if os.path.isfile(circ_file):
+#     with open(circ_file,'rb') as f:
+#         circ_data = pickle.load(f)
+#         circ = circ_data['circuit']
+#         basis_gate_1_site = circ_data['basis_gate_1_site']
+#         basis_gate_2_site = circ_data['basis_gate_2_site']
 
-def get_trajectories(L,depth,Q,theta,m_locs,shots,seed,filedir,p_depo_1,p_depo_2,scrambled=False):
+# a,b = quantum_trajectories(L=L,depth=depth,Q=Q,theta=p,shots=2,m_locs=m_locs,p_depo_2=0.003,p_depo_1=0.0001,circ=circ,basis_gate_1_site = ['id','sx','u1','u2','u3','rz'], basis_gate_2_site = ['cx'])
+# a
+
+def get_trajectories(L,depth,Q,theta,m_locs,shots,seed,filedir,p_depo_1,p_depo_2,
+t_scram,scrambled=None):
 
     filename = filedir+'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)
     if os.path.isfile(filename):
@@ -297,17 +327,63 @@ def get_trajectories(L,depth,Q,theta,m_locs,shots,seed,filedir,p_depo_1,p_depo_2
                 for j in range(L//2-(i%2))] # there are either L//2 or L//2-1 gates for even/odd layers resp.
                     for i in range(depth)]
 
+    ## generate pre-scrambling parameters; This is generated after the monitored circuit parameters so that the monitored dynamics can be reproduced independent of the scrambling protocols.
+    scr_param = []
+    if scrambled == 'Noisy':
+        indices = list(range(0,L,1))
+        for t in range(t_scram):
+            scr_param.append([4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) # unitary layer
+                for j in range(L//2)])
+            rng.shuffle(indices)
+            scr_param.append(indices) # this tells how to act the SWAP layer, indices[0],indices[1] are swapped and so on
     
+    basis_gate_set = 1
+    if basis_gate_set == 1:
+        basis_gate_1_site = ['id','sx','u1','u2','u3','rz']
+        basis_gate_2_site = ['cx']
 
-    new_trajectories = quantum_trajectories(L=L,depth=depth,Q=Q,theta=theta,shots=shots,m_locs=m_locs,param_list=param_list,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambled=scrambled)
-    measurement_array.extend(new_trajectories)
 
-    with open(filename,'wb') as f:
-        pickle.dump([measurement_array,m_locs,param_list],f)
+    if scrambled == 'Noisy':
+        circ_file_dir = 'Weak measurements/circ_data/scrambling/basis_gate_set='+str(basis_gate_set) + '/'
+    else:
+        circ_file_dir = 'Weak measurements/circ_data/no_scrambling/'
+    if not os.path.isdir(circ_file_dir):
+        os.makedirs(circ_file_dir)
+
+    circ_file = circ_file_dir + 'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)+'.imdat'
+    if os.path.isfile(circ_file):
+        with open(circ_file,'rb') as f:
+            circ_data = pickle.load(f)
+            circ = circ_data['circuit']
+            basis_gate_1_site = circ_data['basis_gate_1_site']
+            basis_gate_2_site = circ_data['basis_gate_2_site']
+    else:
+        circ_data = {}
+        circ=None
+        circ_data['basis_gate_1_site'] = basis_gate_1_site
+        circ_data['basis_gate_2_site'] = basis_gate_2_site
+
+
+    new_trajectories,circ = quantum_trajectories(L=L,depth=depth,Q=Q,theta=theta,shots=shots,m_locs=m_locs,param_list=param_list,seed=seed,
+    p_depo_1=p_depo_1,p_depo_2=p_depo_2,
+    basis_gate_1_site = basis_gate_1_site,
+    basis_gate_2_site = basis_gate_2_site,
+    circ=circ,scrambled=scrambled,scrambling_param=scr_param)
+
+    # Saving transpiled circuit
+    circ_data['circuit'] = circ
+    if not os.path.isfile(circ_file):
+            with open(circ_file,'wb') as f:
+                pickle.dump(circ_data,f)
+
+    if shots>0:
+        measurement_array.extend(new_trajectories)
+        with open(filename,'wb') as f:
+            pickle.dump([measurement_array,m_locs,param_list],f)
 
 
 # This collects data where unitary AND locations are FIXED.
-def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,depth_ratio=1,scrambled=False):
+def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,t_scram,depth_ratio=1,scrambled=None):
     for L in L_list:
         for p in p_list:
             start = time.time()
@@ -318,48 +394,56 @@ def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,depth_ratio=
                 depth_label= "_depth_ratio="+str(depth_ratio)
             else:
                 depth_label = ""
-            if not scrambled:
+            if scrambled is None:
                 filedir = 'Weak measurements/Noisy/data/measurement_data_all_qubits'+depth_label+'/'
+            elif scrambled == 'Ideal':
+                filedir = 'Weak measurements/Noisy/data/measurement_data_all_qubits_ideal_scrambled'+depth_label+'/'
+            elif scrambled == 'Noisy':
+                filedir = 'Weak measurements/Noisy/data/measurement_data_all_qubits_noisy_scrambled'+depth_label+'/'
             else:
-                filedir = 'Weak measurements/Noisy/data/measurement_data_all_qubits_scrambled'+depth_label+'/'
+                print("Scrambled input argument not recognized. It should be either \'Noisy\', \'Ideal\' or None")
+                return
 
             if not os.path.isdir(filedir):
                 os.makedirs(filedir)
 
-            get_trajectories(L=L,depth=T,Q=L//2,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambled=scrambled)
-            get_trajectories(L=L,depth=T,Q=L//2-1,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambled=scrambled)
+            get_trajectories(L=L,depth=T,Q=L//2,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,t_scram=t_scram,scrambled=scrambled)
+            get_trajectories(L=L,depth=T,Q=L//2-1,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,t_scram=t_scram,scrambled=scrambled)
             print(L,p,time.time()-start)
 
-p_list = np.round(np.linspace(0.2,0.6*np.pi/2,15),3)[:]
-L_list = [6,8,10,12,14][:3]
+
+p_list = np.round(np.linspace(0.2,0.6*np.pi/2,15),3)[:10]
+L_list = [6,8,10,12,14][:1]
 p_depo_1 = 0.0001
 p_depo_2 = 0.003
-collect_fixed_data(L_list,p_list,1,300,depth_ratio=1,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambled=True)
+scrambled = 'Noisy'
+t_scram = 5
+collect_fixed_data(L_list,p_list,1,samples=0,depth_ratio=1,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambled=scrambled,t_scram=t_scram)
 
 
-basis_gate_1_site = ['u1','u2','u3','rz','sx','id','x']
-basis_gate_2_site = ['cx']
-circ_trial = qk.QuantumCircuit(2,2)
-circ_trial.h(0)
-# circ_trial.z(0)
-# circ_trial.cnot(0,1)
-# circ_trial.x(0)
-circ_trial.save_statevector()
-circ_trial.measure(0,0)
-circ_trial.measure(1,1)
-noise = noise_model(1,1,basis_gate_1_site,basis_gates_2_site=basis_gate_2_site)
-print(noise)
-simulator = AerSimulator(noise_model=noise) 
-"""
-How to change basis gates of the noise model
-"""
+# basis_gate_1_site = ['u1','u2','u3','rz','sx','id','x']
+# basis_gate_2_site = ['cx']
+# circ_trial = qk.QuantumCircuit(2,2)
+# circ_trial.h(0)
+# # circ_trial.z(0)
+# # circ_trial.cnot(0,1)
+# # circ_trial.x(0)
+# circ_trial.save_statevector()
+# circ_trial.measure(0,0)
+# circ_trial.measure(1,1)
+# noise = noise_model(1,1,basis_gate_1_site,basis_gates_2_site=basis_gate_2_site)
+# print(noise)
+# simulator = AerSimulator(noise_model=noise) 
+# """
+# How to change basis gates of the noise model
+# """
 
-circ_trial = qk.transpile(circ_trial, simulator)
-circ_trial.draw()
-result = simulator.run(circ_trial,simulator,shots=10000).result()
-print(result.get_counts())
+# circ_trial = qk.transpile(circ_trial, simulator)
+# circ_trial.draw()
+# result = simulator.run(circ_trial,simulator,shots=10000).result()
+# print(result.get_counts())
 
-import numpy as np
-aa = np.arange(0,16,1).reshape((4,4))
-print(aa[(0,1),:])
-print(aa.flatten())
+# import numpy as np
+# aa = np.arange(0,16,1).reshape((4,4))
+# print(aa[(0,1),:])
+# print(aa.flatten())

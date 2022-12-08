@@ -13,18 +13,18 @@ from itertools import combinations
 
 # Function to get the initial state used in the Qiskit simulation
 def initial_state(L,Q,neel_state=True):
-    #
+    
 
-    # state = np.zeros((2,)*L)
-    # for positions in combinations(range(L), Q):
-    #     p = [0] * L
+    state = np.zeros((2,)*L)
+    for positions in combinations(range(L), Q):
+        p = [0] * L
 
-    #     for i in positions:
-    #         p[i] = 1
+        for i in positions:
+            p[i] = 1
 
-    #     state[tuple(p)] = 1 
-    # state = state/np.sum(np.abs(state)**2)**0.5
-    # return state
+        state[tuple(p)] = 1 
+    state = state/np.sum(np.abs(state)**2)
+    return state
 
     if not neel_state:
         filename = 'Weak measurements/data/scrambled_states/L='+str(L)+'_T='+str(2*L)+'_Q='+str(Q)
@@ -87,7 +87,6 @@ def transfer(x,T,outcomes,state_Q,log_Z,state_zero,L,theta,debug=False):
 
 def sep_dynamics_2(data,Q,theta,neel_initial_state=True):
     (depth,L) = data.shape
-   
     
     Q2 = Q-1
     if Q<L//2:
@@ -166,9 +165,12 @@ def get_sep_data(Q,L,p,depth_ratio,scrambled):
     seed=1
     file_dir = 'Weak measurements/Noisy/data/measurement_data_all_qubits'
     neel_state = True
-    if scrambled:
+    if scrambled == 'Ideal':
         neel_state = False
-        file_dir = file_dir + '_scrambled'
+        file_dir = file_dir + '_ideal_scrambled'
+    elif scrambled == 'Noisy':
+        neel_state = False
+        file_dir = file_dir + '_noisy_scrambled'
     
     filename = file_dir +'/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p=' + str(p)+ '_seed='+str(seed)
     with open(filename,'rb') as f:
@@ -195,8 +197,13 @@ p_suc_dic = {}
 scrambled=True
 depth_ratio=1
 final_file = 'Weak measurements/Noisy/sep_data/seed=1_all_qubits'
-if scrambled:
-    final_file = final_file + '_scrambled'
+if scrambled == 'Ideal':
+    neel_state = False
+    final_file = final_file + '_ideal_scrambled'
+elif scrambled == 'Noisy':
+    neel_state = False
+    final_file = final_file + '_noisy_scrambled'
+
 for L in L_list:
     p_suc_dic[L] = {}
     for p in p_list:
