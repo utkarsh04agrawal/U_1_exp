@@ -8,3 +8,9 @@ Submitting noisy scrambling data on cluster
 1. The noisy data has been collected. The new code is much faster as the scrambling step is decomposed from the start and the transpiler has to work less. To run SEP on it.
 2. Get unitary gates to run quantum decoder and biased decoder.
 3. Forgot to save the scrambling_parameter. Should figure out an efficeint way to do so.
+
+## 8 Dec
+1. Ran SEP on the noisy data. It is stored in Noisy/sep_data/seed=1_all_qubits_noisy_scrambled.
+2. Still need to get unitary gates and run other decoders. 
+3. Need to save scrambling_parameter.
+4. The non-noisy scrambling case I have so far is with normal scrambling scheme. I should also run the modified scrambling scheme without noise as well to compare with the latest data.
