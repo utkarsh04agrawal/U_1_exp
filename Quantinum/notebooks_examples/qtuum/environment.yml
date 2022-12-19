@@ -1,0 +1,17 @@
+name: qtuum
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.6
+  - nb_conda
+  - nest-asyncio
+  - websockets
+  - requests
+  - msal
+  - pyjwt
+  - keyring
+  - pip
+  - pip:
+    - pytket
+    - pytket-quantinuum
