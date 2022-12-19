@@ -4,6 +4,8 @@ import qiskit as qk
 from qiskit.providers.aer.noise import NoiseModel, pauli_error, depolarizing_error, ReadoutError
 import pickle
 
+PARAMS_PER_GATE = 6
+
 # Function to get Haar random U(1) gate
 def random_U_1_gate():
     U_11_11 = np.exp(-1j*2*np.pi*np.random.uniform())
@@ -54,26 +56,16 @@ def u1gate(circ,gate_params,q1,q2,debug=False):
 
 
 # Function to get scrambled the initial state
-def scrambled_state(depth,L,Q,debug=False,BC='PBC'):
+def normal_scrambling(circ,depth,L,Q,scrambling_params,filename,debug=False):
     """
     L is system size. Depth is the depth of scrambling circuit. Q is total charge and is less than equal to int(L/2)
     """
     assert Q <= int(L/2)
     T_scram = depth
-    filename = 'Weak measurements/data/scrambled_states/L='+str(L)+'_T='+str(T_scram)+'_Q='+str(Q)
-    if os.path.isfile(filename):
-        with open(filename,'rb') as f:
-            state = pickle.load(f)
-        return state
-
-    q = qk.QuantumRegister(L+1, 'q') # There are L+1 qubits as the last qubit belongs to ancilla
-    c = qk.ClassicalRegister(1,'c')
-    circ = qk.QuantumCircuit(q,c)
 
     count = 0
-
     while count < Q:
-        circ.x(q[2*count])
+        circ.x(2*count)
         count += 1
     
     ### To study purification and sharpening, we need to add extra q_reg to circuit at location 0 and exceute below lines to entangle it with system
@@ -82,27 +74,27 @@ def scrambled_state(depth,L,Q,debug=False,BC='PBC'):
     # circ.cnot(0,2) # delete this line to study sharpening
     
     for t in range(T_scram):
-        for i in range(0,L-1,2):
-            U = qk.extensions.UnitaryGate(random_U_1_gate(),label=r'$U$')
-            circ.append(U,[q[i],q[i+1]])
-        for i in range(1,L-1,2):
-            U = qk.extensions.UnitaryGate(random_U_1_gate(),label=r'$U$')
-            circ.append(U,[q[i],q[i+1]])
-        
-        if BC=='PBC' and L%2==0:
-            U = qk.extensions.UnitaryGate(random_U_1_gate(),label=r'$U$')
-            circ.append(U,[q[0],q[-2]])
+        if t%2 == 0:
+            for i in range(0,L-1,2):
+                circ = u1gate(circ,scrambling_params[t][i//2],i,i+1,debug=debug)
+        else:
+            for i in range(1,L-1,2):
+                circ = u1gate(circ,scrambling_params[t][i//2],i,i+1,debug=debug)
             
             
     backend = qk.Aer.get_backend('statevector_simulator')
     job = qk.execute(circ,backend=backend)
     state = np.asarray(job.result().data()['statevector'])
+
+    
     with open(filename,'wb') as f:
         pickle.dump(state,f)
-    return state
+
+    return circ,state
 
 
-def noisy_scrambling(circ,qreg,scr_param):
+# the old method had explicit layers of SWAP. But since on the Quantinumm platform, the compiler automatically decompose the long range gates to SWAPs and nearest neighbor interaction, we should avoid SWAP explicitly in the Qiskit circuit.
+def old_noisy_scrambling(circ,qreg,scr_param):
     ## scr_param is a list with alternate parameters about a even layer of u1 gates and random swaps.
     for t in range(len(scr_param)//2):
         u1_param = scr_param[2*t]
@@ -112,6 +104,18 @@ def noisy_scrambling(circ,qreg,scr_param):
         for j in range(0,len(swap_param),2):
             circ.swap(swap_param[j],swap_param[j+1])
     
+
+def noisy_scrambling(circ,qreg,scr_param):
+    ## scr_param is a list with alternate parameters about a even layer of u1 gates and random swaps.
+    for t in range(len(scr_param)//2):
+        u1_param = scr_param[2*t]
+        swap_param = scr_param[2*t+1]
+
+        for j in range(len(u1_param)):
+            x = swap_param[2*j]
+            y = swap_param[2*j+1]
+            circ = u1gate(circ,u1_param[j],qreg[x],qreg[y])
+
 
 def weak_measurement(circ,q,q_a,theta):
     """
@@ -198,8 +202,10 @@ def generate_u1mrc(L,depth,m_locs,params,Q,theta,scrambling_type,scrambling_para
             circ.x(qreg[2*i])
 
     elif scrambling_type == 'Normal':
-        initial_state = scrambled_state(2*L,L,Q)
-        circ.initialize(initial_state)
+        T_scram = 2*L
+        filename = 'Weak measurements/data/qiskit_data/scrambled_states/L='+str(L)+'_T='+str(T_scram)+'_Q='+str(Q)
+
+        circ,_ = normal_scrambling(circ,depth=T_scram,L=L,Q=Q,scrambling_params=scrambling_param,filename=filename)
 
     elif scrambling_type == 'Special': #This is for the case where we have special scrambling for Ion trap setup.
         for i in range(0,Q,1):
@@ -239,3 +245,42 @@ def generate_u1mrc(L,depth,m_locs,params,Q,theta,scrambling_type,scrambling_para
     circ.measure(qreg[:L],creg_list[i])
     # circ.save_statevector(str(i+1))
     return qreg, creg_list, circ
+
+
+def get_circuit_parameters(seed,t_scram,L,depth,scrambling_type):
+    """
+    seed: seed for random numbers
+    t_scram: time for pre-scrambling
+    L: system size
+    depth: depth for monitored dynamics
+    scrambling_type: type of pre-scrambling
+
+    output:
+        - scr_param: parameters for scrambling
+        - param_list: parameters for unitaries in the monitored dynamics.
+    """
+
+    rng = np.random.default_rng(seed=seed)
+    # generate random circuit parameters
+    # each layer has L//2
+    #params = 4*np.pi*np.random.rand(depth,L//2,PARAMS_PER_GATE)
+    param_list = [[4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) 
+                for j in range(L//2-(i%2))] # there are either L//2 or L//2-1 gates for even/odd layers resp.
+                    for i in range(depth)]
+
+    ## generate pre-scrambling parameters; This is generated after the monitored circuit parameters so that the monitored dynamics can be reproduced independent of the scrambling protocols.
+    scr_param = []
+    if scrambling_type == 'Special':
+        indices = list(range(0,L,1))
+        for t in range(t_scram):
+            scr_param.append([4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) # unitary layer
+                for j in range(L//2)])
+            rng.shuffle(indices)
+            scr_param.append(indices) # this tells how to act the SWAP layer, indices[0],indices[1] are swapped and so on
+
+    elif scrambling_type == 'Normal':
+        scr_param = [[4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) 
+                for j in range(L//2-(i%2))] # there are either L//2 or L//2-1 gates for even/odd layers resp.
+                    for i in range(t_scram)]
+
+    return scr_param, param_list

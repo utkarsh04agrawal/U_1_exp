@@ -1,9 +1,11 @@
-*/data/*
-*/*/data/*
-*/data/*
+*/data/qiskit_data/
+*/*Noisy/data/measurement_*
+Projective measurements/data/measurement_*
 !README.md
 */sep_data/hash_tables
 */sep_data/pairing_data
 */sep_data/transfer_matrix
 /__pycache__
 *.npy
+Quantinum/qtuum/*
+Weak measurements/Sharpening/data/qiskit_data/*

@@ -99,6 +99,39 @@ def minimal_working_example():
 def get_trajectories(L,depth,Q,theta,m_locs,shots,seed,filedir,p_depo_1,p_depo_2,
 t_scram,scrambling_type,is_noisy):
 
+#----------------------------------------------------------------------------------------------------#
+    def set_circuit_variables():
+        basis_gate_set = 1
+        if basis_gate_set == 1:
+            basis_gate_1_site = ['id','sx','u1','u2','u3','rz']
+            basis_gate_2_site = ['cx','swap']
+
+        root_dir = 'Weak measurements/data/circ_data/'
+        if scrambling_type == 'Special':
+            circ_file_dir = root_dir + 'special_scrambling/basis_gate_set='+str(basis_gate_set) + '/'
+        elif scrambling_type == 'Normal':
+            circ_file_dir = root_dir + 'normal_scrambling/'
+        else:
+            circ_file_dir = root_dir + 'no_scrambling/'
+        if not os.path.isdir(circ_file_dir):
+            os.makedirs(circ_file_dir)
+
+        circ_file = circ_file_dir + 'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)+'.imdat'
+        if os.path.isfile(circ_file):
+            with open(circ_file,'rb') as f:
+                circ_data = pickle.load(f)
+                circ = circ_data['circuit']
+                basis_gate_1_site = circ_data['basis_gate_1_site']
+                basis_gate_2_site = circ_data['basis_gate_2_site']
+        else:
+            circ_data = {}
+            circ = None
+            circ_data['basis_gate_1_site'] = basis_gate_1_site
+            circ_data['basis_gate_2_site'] = basis_gate_2_site
+
+        return circ, circ_file, circ_data, basis_gate_1_site, basis_gate_2_site
+#----------------------------------------------------------------------------------------------------#
+
     filename = filedir+'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)
     if os.path.isfile(filename):
         with open(filename,'rb') as f:
@@ -106,53 +139,9 @@ t_scram,scrambling_type,is_noisy):
     else:
         measurement_array = []
 
-    rng = np.random.default_rng(seed=seed)
-    # generate random circuit parameters
-    # each layer has L//2
-    #params = 4*np.pi*np.random.rand(depth,L//2,PARAMS_PER_GATE)
-    param_list = [[4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) 
-                for j in range(L//2-(i%2))] # there are either L//2 or L//2-1 gates for even/odd layers resp.
-                    for i in range(depth)]
-
-    ## generate pre-scrambling parameters; This is generated after the monitored circuit parameters so that the monitored dynamics can be reproduced independent of the scrambling protocols.
-    scr_param = []
-    if scrambling_type == 'Special':
-        indices = list(range(0,L,1))
-        for t in range(t_scram):
-            scr_param.append([4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) # unitary layer
-                for j in range(L//2)])
-            rng.shuffle(indices)
-            scr_param.append(indices) # this tells how to act the SWAP layer, indices[0],indices[1] are swapped and so on
+    scr_param, param_list = circuit_generation.get_circuit_parameters(seed=seed,t_scram=t_scram,L=L,depth=depth,scrambling_type=scrambling_type)
     
-    basis_gate_set = 1
-    if basis_gate_set == 1:
-        basis_gate_1_site = ['id','sx','u1','u2','u3','rz']
-        basis_gate_2_site = ['cx','swap']
-
-
-    if scrambling_type == 'Special':
-        circ_file_dir = 'Weak measurements/circ_data/special_scrambling/basis_gate_set='+str(basis_gate_set) + '/'
-    elif scrambling_type == 'Normal':
-        circ_file_dir = 'Weak measurements/circ_data/normal_scrambling/'
-    else:
-        circ_file_dir = 'Weak measurements/circ_data/no_scrambling/'
-
-    if not os.path.isdir(circ_file_dir):
-        os.makedirs(circ_file_dir)
-
-    circ_file = circ_file_dir + 'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)+'.imdat'
-    if os.path.isfile(circ_file):
-        with open(circ_file,'rb') as f:
-            circ_data = pickle.load(f)
-            circ = circ_data['circuit']
-            basis_gate_1_site = circ_data['basis_gate_1_site']
-            basis_gate_2_site = circ_data['basis_gate_2_site']
-    else:
-        circ_data = {}
-        circ = None
-        circ_data['basis_gate_1_site'] = basis_gate_1_site
-        circ_data['basis_gate_2_site'] = basis_gate_2_site
-
+    circ, circ_file, circ_data, basis_gate_1_site, basis_gate_2_site = set_circuit_variables()
 
     new_trajectories,circ = quantum_trajectories(L=L,depth=depth,Q=Q,theta=theta,shots=shots,m_locs=m_locs,param_list=param_list,seed=seed,
     p_depo_1=p_depo_1,p_depo_2=p_depo_2,
@@ -174,39 +163,51 @@ t_scram,scrambling_type,is_noisy):
 
 # This collects data where unitary AND locations are FIXED.
 def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,t_scram,scrambling_type,is_noisy,depth_ratio=1):
+
+    def get_filedir():
+        if depth_ratio != 1:
+            depth_label= "_depth_ratio="+str(depth_ratio)
+        else:
+            depth_label = ""
+
+        if is_noisy:
+            noisy_label = '_noisy'
+        else:
+            noisy_label = ''
+
+        if scrambling_type is None:
+            scrambling_label = '_no_scrambling'
+            noisy_label = ''
+        elif scrambling_type == 'Normal':
+            scrambling_label = '_normal'
+        elif scrambling_type == 'Special':
+            scrambling_label = '_special'
+        else:
+            print("Scrambled input argument not recognized. It should be either \'Normal\', \'Special\' or None")
+            return
+
+        filedir = 'Weak measurements/data/qiskit_data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
+
+        if not os.path.isdir(filedir):
+            os.makedirs(filedir)
+
+        return filedir
+
     for L in L_list:
+
+        if scrambling_type == 'Normal':
+            t_scram = 2*L
+
         for p in p_list:
+
             start = time.time()
             T = int(L*depth_ratio)
             m_locs = np.array([[1,1]*(L//2) for t in range(T-1)])
          
-            if depth_ratio != 1:
-                depth_label= "_depth_ratio="+str(depth_ratio)
-            else:
-                depth_label = ""
-
-            if is_noisy:
-                noisy_label = '_noisy'
-            else:
-                noisy_label = ''
-
-            if scrambling_type is None:
-                scrambling_label = '_no_scrambling'
-                noisy_label = ''
-            elif scrambling_type == 'Normal':
-                scrambling_label = '_normal'
-            elif scrambling_type == 'Special':
-                scrambling_label = '_special'
-            else:
-                print("Scrambled input argument not recognized. It should be either \'Normal\', \'Special\' or None")
-                return
-
-            filedir = 'Weak measurements/data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
-
-            if not os.path.isdir(filedir):
-                os.makedirs(filedir)
+            filedir = get_filedir()
 
             get_trajectories(L=L,depth=T,Q=L//2,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,t_scram=t_scram,scrambling_type=scrambling_type,is_noisy=is_noisy)
+
             get_trajectories(L=L,depth=T,Q=L//2-1,theta=p,m_locs=m_locs,seed=seed,shots=samples,filedir=filedir,p_depo_1=p_depo_1,p_depo_2=p_depo_2,t_scram=t_scram,scrambling_type=scrambling_type,is_noisy=is_noisy)
             print(L,p,time.time()-start)
 

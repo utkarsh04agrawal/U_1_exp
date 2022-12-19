@@ -5,4 +5,4 @@
 
 3. Circuit barrier does not allow qiskit transpiler to optimize gates on the either side of the barrier.
 
-    
+4. Long range interactions on Quantinumm compiler: The Quantinumm compiler will see long range SWAP as just another interaction and will decompose it in CNOTs. So to implement long range interactions, instead of decomposing it in SWAP and nearest neighbor gate, we should apply long range gate in the Qiskit circuit; the Quantinumm compiler will automatically decomposed it in SWAP and gates.

@@ -14,3 +14,18 @@ Submitting noisy scrambling data on cluster
 2. Still need to get unitary gates and run other decoders. 
 3. Need to save scrambling_parameter.
 4. The non-noisy scrambling case I have so far is with normal scrambling scheme. I should also run the modified scrambling scheme without noise as well to compare with the latest data.
+
+
+### 15 Dec Thurs
+1. ~~Remove SWAPs and do long range U1 gates.~~ (16 Dec)
+2. ~~Biased decoder.~~ (15 Dec)
+3. Quantum decoder.
+4. ~~Sharpening transition with weak measurements.~~ (16 Dec)
+5. ~~Update the file structure on the cluster~~ (16 Dec)
+6. Run biased decoder
+7. ~~run all data again after doing point 1 above~~ (16 Dec)
+8. 
+
+### 16 Dec Fri
+1. ~~Save entropy of the sharpening ancilla at intermediate times.~~ (16 Dec)
+2. Run sharpening data.

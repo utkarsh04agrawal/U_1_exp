@@ -184,7 +184,7 @@ def get_sep_data(Q,L,p,depth_ratio,scrambling_type,is_noisy):
         print("Scrambled input argument not recognized. It should be either \'Normal\', \'Special\' or None")
         return
 
-    filedir = 'Weak measurements/data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
+    filedir = 'Weak measurements/data/qiskit_data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
     
     filename = filedir +'/L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p=' + str(p)+ '_seed='+str(seed)
     with open(filename,'rb') as f:
@@ -211,7 +211,7 @@ p_suc_dic = {}
 scrambling_type = 'Special'
 is_noisy = True
 depth_ratio=1
-final_file = 'Weak measurements/sep_data/seed=1_all_qubits'
+final_file = 'Weak measurements/data/sep_data/seed=1_all_qubits'
 if scrambling_type == 'Special':
     neel_state = False
     final_file = final_file + '_special_scrambled'
