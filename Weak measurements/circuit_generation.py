@@ -145,7 +145,14 @@ def weak_measurement(circ,q,q_a,theta):
     circ.h(q_a)
 
     return circ
-
+# q = qk.QuantumRegister(1)
+# qa = qk.QuantumRegister(1)
+# circ = qk.QuantumCircuit(q,qa)
+# circ = weak_measurement(circ,q,qa,np.pi/4)
+# simulator = qk.Aer.get_backend('unitary_simulator')
+# job = qk.execute(circ,simulator)
+# U = np.array(job.result().get_unitary(circ,10))
+# print(np.array(job.result().get_unitary(circ,10)))
 
 def noise_model(p_depo_1,p_depo_2,basis_gates_1_site,basis_gates_2_site):
     """
@@ -276,7 +283,7 @@ def get_circuit_parameters(seed,t_scram,L,depth,scrambling_type):
             scr_param.append([4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) # unitary layer
                 for j in range(L//2)])
             rng.shuffle(indices)
-            scr_param.append(indices) # this tells how to act the SWAP layer, indices[0],indices[1] are swapped and so on
+            scr_param.append(indices.copy()) # this tells how to act the SWAP layer, indices[0],indices[1] are swapped and so on
 
     elif scrambling_type == 'Normal':
         scr_param = [[4*np.pi*rng.uniform(0,1,PARAMS_PER_GATE) 

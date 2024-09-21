@@ -22,10 +22,15 @@ Submitting noisy scrambling data on cluster
 3. Quantum decoder.
 4. ~~Sharpening transition with weak measurements.~~ (16 Dec)
 5. ~~Update the file structure on the cluster~~ (16 Dec)
-6. Run biased decoder
+6. ~~Run biased decoder~~ (16 Dec)
 7. ~~run all data again after doing point 1 above~~ (16 Dec)
 8. 
 
 ### 16 Dec Fri
 1. ~~Save entropy of the sharpening ancilla at intermediate times.~~ (16 Dec)
-2. Run sharpening data.
+2. ~~Run sharpening data.~~(16 Dec)
+
+### 19 Dec Mon
+1. Run entanglement transition
+2. Understand how to run the code on Quantinuum platform using pytket. (I think I understand how to convert qiskit circuit to pytket circuit and submit to Quantinuum backend. Need login permission to start testing)
+

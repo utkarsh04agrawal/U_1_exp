@@ -50,7 +50,7 @@ def quantum_trajectories(L,depth,Q,theta,shots,m_locs,p_depo_1,p_depo_2,basis_ga
     simulator = AerSimulator(basis_gates = basis_gate_1_site+basis_gate_2_site) 
   
     """
-    I tried using simulator = qk.Aer.get_backend('aer_simulator') but was not able to change basis gates. The above line with noise_model argument allows the basis gates of the simulator to be equal to that of the noise_model.
+    I tried using simulator = qk.Aer.get_backend('aer_simulator') but was not able to change basis gates. The above line allows the basis gates of the simulator to be equal to that of the noise_model.
     """ 
 
     if circ is None:
@@ -72,6 +72,7 @@ def quantum_trajectories(L,depth,Q,theta,shots,m_locs,p_depo_1,p_depo_2,basis_ga
     
     else:
         return [],circ
+
 
 def minimal_working_example():
     L=6
@@ -96,6 +97,7 @@ def minimal_working_example():
 
 # a,b = minimal_working_example()
 
+
 def get_trajectories(L,depth,Q,theta,m_locs,shots,seed,filedir,p_depo_1,p_depo_2,
 t_scram,scrambling_type,is_noisy):
 
@@ -107,6 +109,8 @@ t_scram,scrambling_type,is_noisy):
             basis_gate_2_site = ['cx','swap']
 
         root_dir = 'Weak measurements/data/circ_data/'
+        if t_scram == 2:
+            root_dir = 'Weak measurements/t_scram=2/data/circ_data/'
         if scrambling_type == 'Special':
             circ_file_dir = root_dir + 'special_scrambling/basis_gate_set='+str(basis_gate_set) + '/'
         elif scrambling_type == 'Normal':
@@ -132,7 +136,7 @@ t_scram,scrambling_type,is_noisy):
         return circ, circ_file, circ_data, basis_gate_1_site, basis_gate_2_site
 #----------------------------------------------------------------------------------------------------#
 
-    filename = filedir+'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)
+    filename = filedir+'L='+str(L)+'_depth='+str(depth)+'_Q='+str(Q)+'_p='+str(theta)+'_seed='+str(seed)+'.imdat'
     if os.path.isfile(filename):
         with open(filename,'rb') as f:
             measurement_array, m_locs, param_list = pickle.load(f)
@@ -187,6 +191,8 @@ def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,t_scram,scra
             return
 
         filedir = 'Weak measurements/data/qiskit_data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
+        if t_scram == 2:
+            filedir = 'Weak measurements/t_scram=2/data/qiskit_data/measurement_data_all_qubits'+ scrambling_label + noisy_label + depth_label+'/'
 
         if not os.path.isdir(filedir):
             os.makedirs(filedir)
@@ -212,8 +218,13 @@ def collect_fixed_data(L_list,p_list,seed,samples,p_depo_1,p_depo_2,t_scram,scra
             print(L,p,time.time()-start)
 
 
-p_list = np.round(np.linspace(0.2,0.6*np.pi/2,15),3)[:]
-L_list = [6,8,10,12,14][:4]
+# p_list = np.round(np.linspace(0.2,0.6*np.pi/2,15),3)[:]
+p_list = list(np.round(np.linspace(0.2*np.pi/2,0.8*np.pi/2,15),3))
+p_list.extend(list(np.array([0.001,0.01,0.02,0.05,0.1,0.15])*np.pi/2))
+
+
+# p_list = np.round(np.linspace(0,0.2,5),3)
+L_list = [6,8,10,12,14][:]
 scrambling_type = 'Special'
 is_noisy = False
 if is_noisy:
@@ -223,8 +234,9 @@ else:
     p_depo_1 = 0
     p_depo_2 = 0
 
+samples = 10000
 t_scram = 5
-collect_fixed_data(L_list,p_list,1,samples=1,depth_ratio=1,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambling_type=scrambling_type,is_noisy=is_noisy,t_scram=t_scram)
+# collect_fixed_data(L_list,p_list,seed=1,samples=samples,depth_ratio=0.5,p_depo_1=p_depo_1,p_depo_2=p_depo_2,scrambling_type=scrambling_type,is_noisy=is_noisy,t_scram=t_scram)
 
 
 # basis_gate_1_site = ['u1','u2','u3','rz','sx','id','x']
